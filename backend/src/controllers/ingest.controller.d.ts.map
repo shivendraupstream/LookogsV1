@@ -1,1 +1,0 @@
-{"version":3,"file":"ingest.controller.d.ts","sourceRoot":"","sources":["ingest.controller.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,KAAK,YAAY,EAAE,KAAK,cAAc,EAAE,MAAM,SAAS,CAAC;AAEjE,OAAO,EAAE,KAAK,aAAa,EAAE,MAAM,0BAA0B,CAAC;AAI9D,qBAAa,gBAAgB;IAErB,MAAM,CACV,OAAO,EAAE,cAAc,CAAE;QACvB,IAAI,EAAE,aAAa,CAAC;KAAC,CAAC,EACxB,KAAK,EAAE,YAAY,kBA0BpB;CACF"}
