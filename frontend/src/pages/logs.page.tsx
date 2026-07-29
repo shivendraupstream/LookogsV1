@@ -10,12 +10,6 @@ export default function LogsPage() {
 
   const { data: logs, isLoading, error } = useLogs(selectedAppId)
 
-
-console.log('selectedAppId', selectedAppId)
-console.log('logs', logs)
-console.log('isLoading', isLoading)
-console.log('error', error)
-
   if (isLoading) {
     return <div className="text-slate-400">Loading logs...</div>
   }

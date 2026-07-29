@@ -3,6 +3,7 @@ import { type IngestLog } from "../types/ingest.types.js";
 import { validateLog } from "../utils/log-validator.js";
 // LogRepository imported from repositories.js
 import { Severity } from "../generated/prisma/index.js";
+import {createHash} from "node:crypto";
 
 const sourceRepository = new SourceRepository();
 
@@ -10,7 +11,11 @@ const logRepository = new LogRepository();
 
 export class IngestService {
   async ingest(apiKey: string, logs: IngestLog[]) {
-    const source = await sourceRepository.findByApiKeyHash(apiKey);
+
+    function hashApiKey(rawKey: string) {
+      return createHash("sha256").update(rawKey).digest("hex");
+    }
+    const source = await sourceRepository.findByApiKeyHash(hashApiKey(apiKey));
 
     if (!source) {
       throw new Error("Invalid API key");
