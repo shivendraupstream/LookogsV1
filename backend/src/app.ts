@@ -13,10 +13,13 @@ export const app = Fastify({
 
 await app.register(cors);
 
-await app.register(appRoutes);
-await app.register(sourceRoutes);
-await app.register(ingestRoutes);
-await app.register(logRoutes);
+
+await app.register(appRoutes, { prefix: "/api/v1" });
+await app.register(sourceRoutes, { prefix: "/api/v1" });
+await app.register(ingestRoutes, { prefix: "/api/v1" });
+await app.register(logRoutes, { prefix: "/api/v1" });
+
+
 
 await errorHandler(app);
 
