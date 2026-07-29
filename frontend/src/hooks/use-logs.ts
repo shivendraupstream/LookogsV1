@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { getLogs } from '../api/logs.api'
+import { getLogs, type LogFilters } from '../api/logs.api'
 
-export function useLogs(appId: string) {
+export function useLogs(appId: string, filters?: LogFilters) {
   return useQuery({
-    queryKey: ['logs', appId],
-    queryFn: () => getLogs(appId),
+    queryKey: ['logs', appId, filters],
+    queryFn: () => getLogs(appId, filters),
     enabled: !!appId,
   })
 }
