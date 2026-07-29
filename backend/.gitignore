@@ -5,3 +5,9 @@ node_modules
 /src/generated/prisma
 
 dist/
+
+# Ignore generated TypeScript artifacts
+**/*.js
+**/*.js.map
+**/*.d.ts
+**/*.d.ts.map
