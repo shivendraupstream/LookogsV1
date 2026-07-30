@@ -98,3 +98,20 @@ export class SourceRepository {
     });
   }
 }
+
+export class SavedViewRepository {
+  async create(data: { name: string; filters: any; appId: string }) {
+    return prisma.savedView.create({ data });
+  }
+
+  async findAllByApp(appId: string) {
+    return prisma.savedView.findMany({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async delete(id: string) {
+    return prisma.savedView.delete({ where: { id } });
+  }
+}

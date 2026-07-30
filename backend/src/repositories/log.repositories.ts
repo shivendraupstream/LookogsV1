@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { Prisma } from '../generated/prisma/client.js';
 
 type Log = NonNullable<Awaited<ReturnType<typeof prisma.log.findFirst>>>;
 
@@ -42,7 +43,7 @@ export class LogRepository {
    */
   async createMany(input: CreateLogsInput): Promise<number> {
     const { appId, sourceId, logs } = input;
-    
+
     const ingestTime = new Date();
 
     const data = logs.map((log) => ({
@@ -64,7 +65,7 @@ export class LogRepository {
   }
 
   async findManyForHistogram(query: {
-   appId: string;
+    appId: string;
     severity?: string | undefined;
     sourceId?: string | undefined;
     search?: string | undefined;
@@ -86,47 +87,51 @@ export class LogRepository {
 
   /**
    * Fetches logs using cursor pagination (eventTime + id) scoped strictly to an appId.
+   *
+   * Uses a raw SQL query (instead of Prisma's typed `where`) so that `search`
+   * can match against BOTH the message text AND the raw JSON attributes text.
+   * Prisma's typed JSON filters require a known key path, which doesn't work
+   * here since attributes have arbitrary, per-log keys.
    */
   async findMany(query: FindLogsQuery): Promise<Log[]> {
     const { appId, severity, sourceId, search, startTime, endTime, cursor, limit = 50 } = query;
 
-    const where: any = { appId };
+    const conditions: Prisma.Sql[] = [Prisma.sql`"appId" = ${appId}`];
 
-    if (severity) where.severity = severity;
-    if (sourceId) where.sourceId = sourceId;
-
+    if (severity) {
+      conditions.push(Prisma.sql`severity = ${severity}::"Severity"`);
+    }
+    if (sourceId) {
+      conditions.push(Prisma.sql`"sourceId" = ${sourceId}`);
+    }
     if (search) {
-      where.message = {
-        contains: search,
-        mode: 'insensitive',
-      };
+      const pattern = `%${search}%`;
+      conditions.push(
+        Prisma.sql`(message ILIKE ${pattern} OR attributes::text ILIKE ${pattern})`
+      );
     }
-
-    if (startTime || endTime) {
-      where.eventTime = {};
-      if (startTime) where.eventTime.gte = startTime;
-      if (endTime) where.eventTime.lte = endTime;
+    if (startTime) {
+      conditions.push(Prisma.sql`"eventTime" >= ${startTime}`);
     }
-
-    // Cursor pagination logic ( eventTime DESC, id DESC)
+    if (endTime) {
+      conditions.push(Prisma.sql`"eventTime" <= ${endTime}`);
+    }
     if (cursor) {
-      where.OR = [
-        { eventTime: { lt: cursor.eventTime } },
-        {
-          eventTime: cursor.eventTime,
-          id: { lt: cursor.id },
-        },
-      ];
+      conditions.push(
+        Prisma.sql`("eventTime" < ${cursor.eventTime} OR ("eventTime" = ${cursor.eventTime} AND id < ${cursor.id}))`
+      );
     }
 
-    const logs = await this.prisma.log.findMany({
-      where,
-      orderBy: [
-        { eventTime: 'desc' },
-        { id: 'desc' },
-      ],
-      take: limit,
-    });
+    const whereClause = Prisma.join(conditions, ' AND ');
+
+    const logs = await this.prisma.$queryRaw<Log[]>`
+      SELECT id, "appId", "sourceId", severity, message, hostname, service, version,
+             "eventTime", "ingestTime", attributes
+      FROM logs
+      WHERE ${whereClause}
+      ORDER BY "eventTime" DESC, id DESC
+      LIMIT ${limit}
+    `;
 
     return logs;
   }

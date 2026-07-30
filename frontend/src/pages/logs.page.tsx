@@ -1,9 +1,10 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { useApps } from '../hooks/use-apps'
 import { useLogs } from '../hooks/use-logs'
 import { SeverityBadge } from '../components/severity-badge'
 import { useHistogram } from '../hooks/use-histogram'
 import { SeverityChart } from '../components/severity-chart'
+import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../hooks/use-saved-views'
 
 export default function LogsPage() {
   const { data: apps } = useApps()
@@ -14,6 +15,7 @@ export default function LogsPage() {
   const [timeRange, setTimeRange] = useState<string>('all')
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
+  const [selectedViewId, setSelectedViewId] = useState<string>('')
 
   const getTimeRangeParams = (): { startTime?: string; endTime?: string } => {
     const now = new Date()
@@ -36,14 +38,14 @@ export default function LogsPage() {
     return {} // 'all' — no time restriction
   }
 
-  const getHistogramRange = (): { startTime: string; endTime: string } => {
+  const { startTime: histStart, endTime: histEnd } = useMemo(() => {
     const now = new Date()
     const params = getTimeRangeParams()
     return {
       startTime: params.startTime || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
       endTime: params.endTime || now.toISOString(),
     }
-  }
+  }, [timeRange, customStart, customEnd])
 
   useEffect(() => {
     if (!selectedAppId && apps && apps.length > 0) {
@@ -57,16 +59,73 @@ export default function LogsPage() {
     ...getTimeRangeParams(),
   })
 
-  const { startTime: histStart, endTime: histEnd } = getHistogramRange()
   const { data: histogramData } = useHistogram(selectedAppId, histStart, histEnd, {
     severity: severityFilter || undefined,
     search: searchInput || undefined,
   })
 
+  const { data: savedViews } = useSavedViews(selectedAppId)
+  const createSavedView = useCreateSavedView(selectedAppId)
+  const deleteSavedView = useDeleteSavedView(selectedAppId)
+
   const selectedApp = apps?.find((app) => app.id === selectedAppId)
 
   const toggleExpand = (id: string) => {
     setExpandedLogId((current) => (current === id ? null : id))
+  }
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim()) return text
+
+    const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
+
+    return parts.map((part, i) =>
+      part.toLowerCase() === query.toLowerCase() ? (
+        <mark key={i} className="bg-yellow-500/40 text-yellow-100 rounded px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    )
+  }
+
+  const handleSaveView = () => {
+    const name = window.prompt('Name this saved view:')
+    if (!name) return
+
+    createSavedView.mutate({
+      name,
+      filters: {
+        severity: severityFilter || undefined,
+        search: searchInput || undefined,
+        timeRange,
+        customStart: customStart || undefined,
+        customEnd: customEnd || undefined,
+      },
+    })
+  }
+
+  const handleLoadView = (viewId: string) => {
+    setSelectedViewId(viewId)
+    if (!viewId) return
+
+    const view = savedViews?.find((v) => v.id === viewId)
+    if (!view) return
+
+    setSeverityFilter(view.filters.severity || '')
+    setSearchInput(view.filters.search || '')
+    setTimeRange(view.filters.timeRange || 'all')
+    setCustomStart(view.filters.customStart || '')
+    setCustomEnd(view.filters.customEnd || '')
+  }
+
+  const handleDeleteView = () => {
+    if (!selectedViewId) return
+    if (!window.confirm('Delete this saved view?')) return
+
+    deleteSavedView.mutate(selectedViewId)
+    setSelectedViewId('')
   }
 
   return (
@@ -166,6 +225,39 @@ export default function LogsPage() {
         )}
       </div>
 
+      <div className="flex items-center gap-3 border-t border-slate-800 pt-4">
+        <span className="text-sm text-slate-400">Saved views:</span>
+
+        <select
+          value={selectedViewId}
+          onChange={(e) => handleLoadView(e.target.value)}
+          className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-cyan-500 focus:outline-none"
+        >
+          <option value="">— Select a saved view —</option>
+          {savedViews?.map((view) => (
+            <option key={view.id} value={view.id}>
+              {view.name}
+            </option>
+          ))}
+        </select>
+
+        {selectedViewId && (
+          <button
+            onClick={handleDeleteView}
+            className="rounded-lg border border-red-900 bg-red-950/30 px-3 py-1.5 text-sm text-red-400 hover:bg-red-950/50 transition-colors"
+          >
+            Delete view
+          </button>
+        )}
+
+        <button
+          onClick={handleSaveView}
+          className="ml-auto rounded-lg border border-cyan-700 bg-cyan-950/30 px-3 py-1.5 text-sm text-cyan-300 hover:bg-cyan-950/50 transition-colors"
+        >
+          Save current filters
+        </button>
+      </div>
+
       {isLoading && <div className="text-slate-400">Loading logs...</div>}
       {error && <div className="text-red-400">Failed to load logs</div>}
 
@@ -200,7 +292,9 @@ export default function LogsPage() {
                       <SeverityBadge severity={log.severity} />
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <div className="font-medium text-slate-100">{log.message}</div>
+                      <div className="font-medium text-slate-100">
+                        {highlightMatch(log.message, searchInput)}
+                      </div>
                     </td>
                     <td className="px-4 py-3 align-top text-slate-400">
                       {log.service || '—'}

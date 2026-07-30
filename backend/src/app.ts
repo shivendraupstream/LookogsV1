@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { savedViewRoutes } from "./routes/saved-view.routes.js";
 
 import { appRoutes } from "./routes/app.routes.js";
 import { sourceRoutes } from "./routes/source.routes.js";
@@ -18,6 +19,7 @@ await app.register(appRoutes, { prefix: "/api/v1" });
 await app.register(sourceRoutes, { prefix: "/api/v1" });
 await app.register(ingestRoutes);
 await app.register(logRoutes);
+await app.register(savedViewRoutes, { prefix: "/api/v1" });
 
 
 
