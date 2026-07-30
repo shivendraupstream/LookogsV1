@@ -63,6 +63,27 @@ export class LogRepository {
     return result.count;
   }
 
+  async findManyForHistogram(query: {
+   appId: string;
+    severity?: string | undefined;
+    sourceId?: string | undefined;
+    search?: string | undefined;
+    startTime: Date;
+    endTime: Date;
+  }): Promise<{ severity: string; eventTime: Date }[]> {
+    const { appId, severity, sourceId, search, startTime, endTime } = query;
+    const where: any = { appId, eventTime: { gte: startTime, lte: endTime } };
+    if (severity) where.severity = severity;
+    if (sourceId) where.sourceId = sourceId;
+    if (search) where.message = { contains: search, mode: 'insensitive' };
+
+    return this.prisma.log.findMany({
+      where,
+      select: { severity: true, eventTime: true },
+      orderBy: { eventTime: 'asc' },
+    });
+  }
+
   /**
    * Fetches logs using cursor pagination (eventTime + id) scoped strictly to an appId.
    */

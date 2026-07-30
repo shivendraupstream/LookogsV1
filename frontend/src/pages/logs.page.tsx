@@ -2,6 +2,8 @@ import { useState, useEffect, Fragment } from 'react'
 import { useApps } from '../hooks/use-apps'
 import { useLogs } from '../hooks/use-logs'
 import { SeverityBadge } from '../components/severity-badge'
+import { useHistogram } from '../hooks/use-histogram'
+import { SeverityChart } from '../components/severity-chart'
 
 export default function LogsPage() {
   const { data: apps } = useApps()
@@ -12,7 +14,6 @@ export default function LogsPage() {
   const [timeRange, setTimeRange] = useState<string>('all')
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
-  // Once apps load, default to the first one if nothing is picked yet
 
   const getTimeRangeParams = (): { startTime?: string; endTime?: string } => {
     const now = new Date()
@@ -34,17 +35,32 @@ export default function LogsPage() {
     }
     return {} // 'all' — no time restriction
   }
-  
+
+  const getHistogramRange = (): { startTime: string; endTime: string } => {
+    const now = new Date()
+    const params = getTimeRangeParams()
+    return {
+      startTime: params.startTime || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      endTime: params.endTime || now.toISOString(),
+    }
+  }
+
   useEffect(() => {
     if (!selectedAppId && apps && apps.length > 0) {
       setSelectedAppId(apps[0].id)
     }
   }, [apps, selectedAppId])
 
- const { data: logs, isLoading, error } = useLogs(selectedAppId, {
+  const { data: logs, isLoading, error } = useLogs(selectedAppId, {
     severity: severityFilter || undefined,
     search: searchInput || undefined,
     ...getTimeRangeParams(),
+  })
+
+  const { startTime: histStart, endTime: histEnd } = getHistogramRange()
+  const { data: histogramData } = useHistogram(selectedAppId, histStart, histEnd, {
+    severity: severityFilter || undefined,
+    search: searchInput || undefined,
   })
 
   const selectedApp = apps?.find((app) => app.id === selectedAppId)
@@ -52,8 +68,6 @@ export default function LogsPage() {
   const toggleExpand = (id: string) => {
     setExpandedLogId((current) => (current === id ? null : id))
   }
-
-  
 
   return (
     <div className="space-y-6">
@@ -83,6 +97,10 @@ export default function LogsPage() {
           </div>
         </div>
       </div>
+
+      {histogramData && histogramData.length > 0 && (
+        <SeverityChart data={histogramData} />
+      )}
 
       <div className="flex items-center gap-3">
         <select

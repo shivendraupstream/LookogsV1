@@ -19,7 +19,6 @@ await app.register(sourceRoutes, { prefix: "/api/v1" });
 await app.register(ingestRoutes);
 await app.register(logRoutes);
 
-console.log(app.printRoutes());
 
 
 await errorHandler(app);

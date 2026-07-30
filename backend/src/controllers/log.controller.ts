@@ -42,6 +42,32 @@ export class LogController {
         }
     };
 
+    async getHistogram(request: FastifyRequest, reply: FastifyReply) {
+        const { appId, severity, sourceId, search, startTime, endTime } = request.query as {
+        appId?: string; severity?: Severity; sourceId?: string; search?: string; startTime?: string; endTime?: string;
+        };
+
+        if (!appId) return reply.code(400).send({ error: "appId is required" });
+        if (!startTime || !endTime) return reply.code(400).send({ error: "startTime and endTime are required" });
+        if (Number.isNaN(new Date(startTime).getTime()) || Number.isNaN(new Date(endTime).getTime())) {
+        return reply.code(400).send({ error: "Invalid startTime or endTime" });
+        }
+        if (severity && !Object.values(Severity).includes(severity)) {
+        return reply.code(400).send({ error: "Invalid severity value" });
+        }
+
+        try {
+        const buckets = await logService.getHistogram({
+            appId, severity, sourceId, search,
+            startTime: new Date(startTime),
+            endTime: new Date(endTime),
+        });
+        return reply.code(200).send({ buckets });
+        } catch (error) {
+        return reply.code(500).send({ error: "Failed to retrieve histogram" });
+        }
+    }
+
   async getLogs(
     request: FastifyRequest,
     reply: FastifyReply
