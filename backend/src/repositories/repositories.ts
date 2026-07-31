@@ -47,6 +47,14 @@ export class AppRepository {
 }
 
 export class SourceRepository {
+
+  async updateApiKeyHash(id: string, apiKeyHash: string) {
+    return prisma.source.update({
+      where: { id },
+      data: { apiKeyHash },
+    });
+  }
+  
   async create(data: {
     name: string;
     environment: string;

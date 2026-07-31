@@ -12,6 +12,13 @@ function hashApiKey(rawKey: string) {
 export class SourceService {
   private sourceRepository = new SourceRepository();
 
+  async rotateKey(id: string) {
+    const apiKey = generateApiKey();
+    const apiKeyHash = hashApiKey(apiKey);
+    const source = await this.sourceRepository.updateApiKeyHash(id, apiKeyHash);
+    return { ...source, apiKey };
+  }
+
   async create(appId: string, name: string, environment: string) {
     const apiKey = generateApiKey();
     const apiKeyHash = hashApiKey(apiKey);

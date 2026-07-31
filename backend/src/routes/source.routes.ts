@@ -6,6 +6,30 @@ export async function sourceRoutes(fastify: FastifyInstance) {
   const appService = new AppService();
   const sourceService = new SourceService();
 
+
+  fastify.post<{ Params: { id: string } }>(
+    "/sources/:id/rotate-key",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const found = await sourceService.findById(id);
+      if (!found) {
+        reply.code(404).send({ error: "Source not found" });
+        return;
+      }
+      const rotated = await sourceService.rotateKey(id);
+      reply.code(200).send(rotated);
+    }
+  );
+  
   fastify.post<{
     Params: { appId: string };
     Body: { name: string; environment: string };
