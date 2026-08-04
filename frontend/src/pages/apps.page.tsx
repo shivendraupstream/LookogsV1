@@ -1,7 +1,25 @@
-import { useApps } from '../hooks/use-apps'
+import { useApps, useCreateApp, useDeleteApp } from '../hooks/use-apps'
+
 
 export default function AppsPage() {
   const { data: apps, isLoading, error } = useApps()
+  const createApp = useCreateApp()
+
+  const deleteApp = useDeleteApp()
+
+  const handleCreate = () => {
+    const name = window.prompt('Application name:')
+    if (!name) return
+
+    const description = window.prompt('Description (optional):') || undefined
+
+    createApp.mutate({ name, description })
+  }
+
+  const handleDelete = (id: string, name: string) => {
+    if (!window.confirm(`Delete "${name}"? This will also delete all its sources and logs. This cannot be undone.`)) return
+    deleteApp.mutate(id)
+  }
 
   if (isLoading) {
     return <div className="text-slate-400">Loading applications...</div>
@@ -16,7 +34,10 @@ export default function AppsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-100">Applications</h1>
 
-        <button className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-400">
+        <button
+          onClick={handleCreate}
+          className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-400"
+        >
           + New Application
         </button>
       </div>
@@ -38,9 +59,17 @@ export default function AppsPage() {
                 </p>
               </div>
 
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                Active
-              </span>
+             <div className="flex items-center gap-2">
+                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                  Active
+                </span>
+                <button
+                  onClick={() => handleDelete(app.id, app.name)}
+                  className="rounded-lg border border-red-900 bg-red-950/30 px-3 py-1 text-xs text-red-400 hover:bg-red-950/50 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
 
             <div className="mt-4 text-xs text-slate-500">

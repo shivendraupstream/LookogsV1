@@ -53,4 +53,26 @@ export async function appRoutes(fastify: FastifyInstance) {
       return found;
     }
   );
+  fastify.delete<{ Params: { id: string } }>(
+    "/apps/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const found = await appService.findById(id);
+      if (!found) {
+        reply.code(404).send({ error: "App not found" });
+        return;
+      }
+      await appService.delete(id);
+      reply.code(204).send();
+    }
+  );
 }

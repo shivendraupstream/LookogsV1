@@ -12,7 +12,10 @@ export const app = Fastify({
   logger: true,
 });
 
-await app.register(cors);
+await app.register(cors, {
+  origin: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+});
 
 
 await app.register(appRoutes, { prefix: "/api/v1" });
