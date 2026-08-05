@@ -18,6 +18,31 @@ await app.register(cors, {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
 
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
+
+app.addHook("onRequest", async (request, reply) => {
+  if (request.url === "/health") return; // allow health checks through, unauthenticated
+  if (request.method === "OPTIONS") return; // let CORS preflight requests through unauthenticated
+
+  const authHeader = request.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Basic ")) {
+    reply.header("WWW-Authenticate", 'Basic realm="Lookogs"');
+    reply.code(401).send({ error: "Authentication required" });
+    return reply;
+  }
+
+  const base64Credentials = authHeader.slice("Basic ".length);
+  const credentials = Buffer.from(base64Credentials, "base64").toString("utf-8");
+  const [username, password] = credentials.split(":");
+
+  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+    reply.code(401).send({ error: "Invalid credentials" });
+    return reply;
+  }
+});
+
 initLookogs({ apiKey: "2465f29b150e4a25e69a75c52885f03ce635332d433d157bde39c6da188bff58", serviceName: "lookogs-backend" });
 attachToFastify(app);
 
