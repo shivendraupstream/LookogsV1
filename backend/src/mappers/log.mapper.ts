@@ -1,4 +1,4 @@
-import type { Severity } from "../generated/prisma/index.js";
+import type { Severity } from "../generated/prisma/enums.js";
 import type { ParsedLog } from "../types/log.types.ts";
 import type { IngestLog } from "../types/ingest.types.js";
 

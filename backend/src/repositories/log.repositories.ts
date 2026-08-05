@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { Prisma } from '../generated/prisma/client.js';
+import { parseQuery } from '../utils/query-parser.js';
 
 type Log = NonNullable<Awaited<ReturnType<typeof prisma.log.findFirst>>>;
 
@@ -25,6 +26,7 @@ export interface FindLogsQuery {
   severity?: string;
   sourceId?: string;
   search?: string;
+  query?: string;
   startTime?: Date;
   endTime?: Date;
   cursor?: {
@@ -54,6 +56,7 @@ export class LogRepository {
       severity: log.severity as Log['severity'],
       eventTime: log.eventTime,
       ingestTime,
+      service: (log as any).service ?? null,
       attributes: log.attributes,
     }));
 
@@ -94,7 +97,7 @@ export class LogRepository {
    * here since attributes have arbitrary, per-log keys.
    */
   async findMany(query: FindLogsQuery): Promise<Log[]> {
-    const { appId, severity, sourceId, search, startTime, endTime, cursor, limit = 50 } = query;
+    const { appId, severity, sourceId, search, startTime, endTime, cursor, limit = 50, query: advancedQuery } = query;
 
     const conditions: Prisma.Sql[] = [Prisma.sql`"appId" = ${appId}`];
 
@@ -109,6 +112,10 @@ export class LogRepository {
       conditions.push(
         Prisma.sql`(message ILIKE ${pattern} OR attributes::text ILIKE ${pattern})`
       );
+    }
+    if (advancedQuery) {
+      const parsed = parseQuery(advancedQuery);
+      if (parsed) conditions.push(parsed);
     }
     if (startTime) {
       conditions.push(Prisma.sql`"eventTime" >= ${startTime}`);

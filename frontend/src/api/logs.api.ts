@@ -8,6 +8,7 @@ interface LogsResponse {
 export interface LogFilters {
   severity?: string
   search?: string
+  query?: string
   startTime?: string
   endTime?: string
 }

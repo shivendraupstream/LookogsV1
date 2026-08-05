@@ -1,4 +1,4 @@
-import type { Severity } from "../generated/prisma/index.js";
+import type { Severity } from "../generated/prisma/enums.js";
 
 export interface ParsedLog {
   message: string;

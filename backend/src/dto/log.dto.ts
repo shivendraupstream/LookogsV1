@@ -1,4 +1,4 @@
-import type { Log } from "../generated/prisma/index.js";
+import type { Log } from "../generated/prisma/client.js";
 
 export interface LogResponseDto {
   id: string;

@@ -78,6 +78,7 @@ export class LogController {
         severity,
         sourceId,   
         search,
+        query: advancedQuery,
         startTime,
         endTime, 
         limit,
@@ -88,6 +89,7 @@ export class LogController {
       severity?: Severity;
       sourceId?: string;
       search?: string;
+      query?: string;
       startTime?: string;
       endTime?: string;
       limit?: number;
@@ -145,6 +147,10 @@ export class LogController {
 
         if (search) {
             query.search = search;
+            }
+
+        if (advancedQuery) {
+            query.query = advancedQuery;
             }
 
         if (startTime) {

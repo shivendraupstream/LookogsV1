@@ -12,6 +12,7 @@ export default function LogsPage() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
   const [severityFilter, setSeverityFilter] = useState<string>('')
   const [searchInput, setSearchInput] = useState<string>('')
+  const [advancedQuery, setAdvancedQuery] = useState<string>('')
   const [timeRange, setTimeRange] = useState<string>('all')
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
@@ -38,14 +39,15 @@ export default function LogsPage() {
     return {} // 'all' — no time restriction
   }
 
+  const timeRangeParams = useMemo(() => getTimeRangeParams(), [timeRange, customStart, customEnd])
+
   const { startTime: histStart, endTime: histEnd } = useMemo(() => {
     const now = new Date()
-    const params = getTimeRangeParams()
     return {
-      startTime: params.startTime || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
-      endTime: params.endTime || now.toISOString(),
+      startTime: timeRangeParams.startTime || new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      endTime: timeRangeParams.endTime || now.toISOString(),
     }
-  }, [timeRange, customStart, customEnd])
+  }, [timeRangeParams])
 
   useEffect(() => {
     if (!selectedAppId && apps && apps.length > 0) {
@@ -56,7 +58,8 @@ export default function LogsPage() {
   const { data: logs, isLoading, error } = useLogs(selectedAppId, {
     severity: severityFilter || undefined,
     search: searchInput || undefined,
-    ...getTimeRangeParams(),
+    query: advancedQuery || undefined,
+    ...timeRangeParams,
   })
 
   const { data: histogramData } = useHistogram(selectedAppId, histStart, histEnd, {
@@ -183,7 +186,17 @@ export default function LogsPage() {
           placeholder="Search messages..."
           className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
         />
+
+        <input
+        type="text"
+        value={advancedQuery}
+        onChange={(e) => setAdvancedQuery(e.target.value)}
+        placeholder='Advanced query — e.g. method:GET OR method:POST'
+        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+      />
       </div>
+
+
 
       <div className="flex items-center gap-2">
         {[
