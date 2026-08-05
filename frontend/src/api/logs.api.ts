@@ -1,8 +1,14 @@
 import { api } from '../lib/api'
 import type { Log } from '../types/log'
 
+export interface LogCursor {
+  id: string
+  eventTime: string
+}
+
 interface LogsResponse {
   logs: Log[]
+  nextCursor: LogCursor | null
 }
 
 export interface LogFilters {
@@ -13,12 +19,21 @@ export interface LogFilters {
   endTime?: string
 }
 
-export async function getLogs(appId: string, filters?: LogFilters): Promise<Log[]> {
+export async function getLogs(
+  appId: string,
+  filters?: LogFilters,
+  cursor?: LogCursor
+): Promise<LogsResponse> {
   const response = await api.get<LogsResponse>('/logs', {
-    params: { appId, ...filters },
+    params: {
+      appId,
+      ...filters,
+      cursorId: cursor?.id,
+      cursorTime: cursor?.eventTime,
+    },
   })
 
-  return response.data.logs
+  return response.data
 }
 
 export interface HistogramBucket {

@@ -5,6 +5,8 @@ import { SeverityBadge } from '../components/severity-badge'
 import { useHistogram } from '../hooks/use-histogram'
 import { SeverityChart } from '../components/severity-chart'
 import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../hooks/use-saved-views'
+import type { Log } from '../types/log'
+import type { LogCursor } from '../api/logs.api'
 
 export default function LogsPage() {
   const { data: apps } = useApps()
@@ -17,6 +19,9 @@ export default function LogsPage() {
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
   const [selectedViewId, setSelectedViewId] = useState<string>('')
+
+  const [cursor, setCursor] = useState<LogCursor | undefined>(undefined)
+  const [accumulatedLogs, setAccumulatedLogs] = useState<Log[]>([])
 
   const getTimeRangeParams = (): { startTime?: string; endTime?: string } => {
     const now = new Date()
@@ -36,7 +41,7 @@ export default function LogsPage() {
         endTime: customEnd ? new Date(customEnd).toISOString() : undefined,
       }
     }
-    return {} // 'all' — no time restriction
+    return {}
   }
 
   const timeRangeParams = useMemo(() => getTimeRangeParams(), [timeRange, customStart, customEnd])
@@ -55,12 +60,35 @@ export default function LogsPage() {
     }
   }, [apps, selectedAppId])
 
-  const { data: logs, isLoading, error } = useLogs(selectedAppId, {
+  const filters = {
     severity: severityFilter || undefined,
     search: searchInput || undefined,
     query: advancedQuery || undefined,
     ...timeRangeParams,
-  })
+  }
+
+  useEffect(() => {
+    setCursor(undefined)
+    setAccumulatedLogs([])
+  }, [selectedAppId, severityFilter, searchInput, advancedQuery, timeRangeParams])
+
+  const { data, isLoading, error } = useLogs(selectedAppId, filters, cursor)
+
+  useEffect(() => {
+    if (!data) return
+
+    if (!cursor) {
+      setAccumulatedLogs(data.logs)
+    } else {
+      setAccumulatedLogs((prev) => [...prev, ...data.logs])
+    }
+  }, [data])
+
+  const handleLoadMore = () => {
+    if (data?.nextCursor) {
+      setCursor(data.nextCursor)
+    }
+  }
 
   const { data: histogramData } = useHistogram(selectedAppId, histStart, histEnd, {
     severity: severityFilter || undefined,
@@ -155,7 +183,7 @@ export default function LogsPage() {
           </select>
 
           <div className="text-sm text-slate-500">
-            {logs?.length || 0} log entries
+            {accumulatedLogs.length} log{accumulatedLogs.length === 1 ? '' : 's'} loaded
           </div>
         </div>
       </div>
@@ -188,15 +216,13 @@ export default function LogsPage() {
         />
 
         <input
-        type="text"
-        value={advancedQuery}
-        onChange={(e) => setAdvancedQuery(e.target.value)}
-        placeholder='Advanced query — e.g. method:GET OR method:POST'
-        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
-      />
+          type="text"
+          value={advancedQuery}
+          onChange={(e) => setAdvancedQuery(e.target.value)}
+          placeholder='Advanced query — e.g. method:GET OR method:POST'
+          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+        />
       </div>
-
-
 
       <div className="flex items-center gap-2">
         {[
@@ -271,10 +297,10 @@ export default function LogsPage() {
         </button>
       </div>
 
-      {isLoading && <div className="text-slate-400">Loading logs...</div>}
+      {isLoading && accumulatedLogs.length === 0 && <div className="text-slate-400">Loading logs...</div>}
       {error && <div className="text-red-400">Failed to load logs</div>}
 
-      {!isLoading && !error && (
+      {!error && (
         <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
           <table className="w-full border-collapse">
             <thead className="border-b border-slate-800 bg-slate-950/50">
@@ -295,7 +321,7 @@ export default function LogsPage() {
             </thead>
 
             <tbody>
-              {logs?.map((log) => (
+              {accumulatedLogs.map((log) => (
                 <Fragment key={log.id}>
                   <tr
                     onClick={() => toggleExpand(log.id)}
@@ -359,9 +385,21 @@ export default function LogsPage() {
             </tbody>
           </table>
 
-          {logs?.length === 0 && (
+          {accumulatedLogs.length === 0 && !isLoading && (
             <div className="p-10 text-center text-slate-400">
               No logs found for this application.
+            </div>
+          )}
+
+          {data?.nextCursor && (
+            <div className="p-4 text-center border-t border-slate-800">
+              <button
+                onClick={handleLoadMore}
+                disabled={isLoading}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Loading...' : 'Load more'}
+              </button>
             </div>
           )}
         </div>

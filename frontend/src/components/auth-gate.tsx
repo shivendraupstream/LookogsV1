@@ -12,34 +12,23 @@ export function AuthGate({ children }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  const verify = async (user: string, pass: string) => {
-    try {
-      await api.get('/apps', { auth: { username: user, password: pass } })
-      localStorage.setItem('lookogs_username', user)
-      localStorage.setItem('lookogs_password', pass)
-      setAuthenticated(true)
-      setError('')
-    } catch {
-      setError('Invalid username or password')
-      localStorage.removeItem('lookogs_username')
-      localStorage.removeItem('lookogs_password')
-    }
-  }
-
   useEffect(() => {
-    const storedUser = localStorage.getItem('lookogs_username')
-    const storedPass = localStorage.getItem('lookogs_password')
-
-    if (storedUser && storedPass) {
-      verify(storedUser, storedPass).finally(() => setChecked(true))
-    } else {
-      setChecked(true)
-    }
+    const token = localStorage.getItem('lookogs_token')
+    setAuthenticated(!!token)
+    setChecked(true)
   }, [])
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    verify(username, password)
+    setError('')
+
+    try {
+      const response = await api.post('/login', { username, password })
+      localStorage.setItem('lookogs_token', response.data.token)
+      setAuthenticated(true)
+    } catch {
+      setError('Invalid username or password')
+    }
   }
 
   if (!checked) {

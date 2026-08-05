@@ -19,19 +19,28 @@ function parseCondition(token: string): Condition | null {
   return { field, value };
 }
 
-function conditionToSql(cond: Condition): Prisma.Sql {
+const VALID_SEVERITIES = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
+
+function conditionToSql(cond: Condition): Prisma.Sql | null {
   if (cond.field === 'message') {
     return Prisma.sql`message ILIKE ${'%' + cond.value + '%'}`;
   }
+
   if (cond.field === 'severity') {
-    return Prisma.sql`severity = ${cond.value.toUpperCase()}::"Severity"`;
+    const value = cond.value.toUpperCase();
+    if (!VALID_SEVERITIES.includes(value)) return null; // ignore invalid severity instead of erroring
+    return Prisma.sql`severity = ${value}::"Severity"`;
   }
+
   if (cond.field === 'service') {
     return Prisma.sql`service = ${cond.value}`;
   }
+
   if (cond.field === 'hostname') {
     return Prisma.sql`hostname = ${cond.value}`;
   }
+
+  // Anything else is treated as an attribute key, e.g. method:GET, status:404
   return Prisma.sql`attributes->>${cond.field} = ${cond.value}`;
 }
 
@@ -47,7 +56,10 @@ export function parseQuery(query: string): Prisma.Sql | null {
 
     for (const token of andTokens) {
       const cond = parseCondition(token);
-      if (cond) condSqls.push(conditionToSql(cond));
+      if (cond) {
+        const sql = conditionToSql(cond);
+        if (sql) condSqls.push(sql);
+      }
     }
 
     if (condSqls.length > 0) {

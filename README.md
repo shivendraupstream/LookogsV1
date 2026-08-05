@@ -1,421 +1,223 @@
 # Lookogs
-This is Lookogs, An application that helps you see and visualize the logs to debug better. 
-# Lookogs
 
-**Lookogs** is a self-hostable log management and APM platform, inspired by AppSignal.
+A self-hosted log management platform — logging + basic APM data, built to
+replace AppSignal's logging subscription for Upstream Tech.
 
-It lets external applications send logs over HTTP, stores them securely in PostgreSQL, and exposes APIs to retrieve, search, and filter them — all under your own infrastructure.
-
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Requirements](#requirements)
-  - [Clone the Repository](#clone-the-repository)
-  - [Environment Variables](#environment-variables)
-  - [Install Dependencies](#install-dependencies)
-  - [Start Docker Services](#start-docker-services)
-  - [Database Setup](#database-setup)
-  - [Seed the Database (Optional)](#seed-the-database-optional)
-  - [Run the Backend](#run-the-backend)
-  - [Verify the Backend](#verify-the-backend)
-- [pgAdmin Access](#pgadmin-access)
-- [API Reference](#api-reference)
-- [Architecture](#architecture)
-- [Roadmap](#roadmap)
-- [Development Commands](#development-commands)
-- [Stopping the Project](#stopping-the-project)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+**Stack:** Node.js, TypeScript, Fastify, Prisma, PostgreSQL, React, Docker
 
 ---
 
-## Features
-
-**Currently shipped (MVP):**
-
-| Category | Capability |
-|---|---|
-| Applications | Create and list applications |
-| Sources | Create and list log sources |
-| Auth | API key authentication for ingestion |
-| Ingestion | JSON log ingestion, single and bulk |
-| Retrieval | Filtered log queries with cursor pagination |
-| Retrieval | Fetch a single log by ID |
-| Storage | PostgreSQL persistence |
-| Infra | Full Docker development environment |
-
----
-
-## Tech Stack
-
-**Backend**
-- Node.js
-- TypeScript
-- Fastify
-- Prisma ORM
-- PostgreSQL
-- Redis *(wired up, reserved for upcoming features)*
-
-**Infrastructure**
-- Docker
-- Docker Compose
-- pgAdmin
-
----
-
-## Project Structure
+## What's in this repo
 
 ```
 Lookogs/
-│
-├── backend/
-│   ├── prisma/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── services/
-│   │   ├── repositories/
-│   │   ├── routes/
-│   │   ├── dto/
-│   │   ├── plugins/
-│   │   └── ...
-│   │
-│   ├── package.json
-│   └── tsconfig.json
-│
+├── backend/          Fastify API server
+├── frontend/         React dashboard
 ├── docker-compose.yml
-├── .env.example
-└── README.md
+├── SETUP.md          Fresh-machine setup, troubleshooting
+├── INTEGRATION.md    How to connect YOUR OWN app to send logs here
+└── README.md         This file — exact run instructions
 ```
+
+If you're setting this up on a brand new machine for the first time, read
+this file first, then `SETUP.md` if anything goes wrong.
 
 ---
 
-## Getting Started
+## Prerequisites
 
-### Requirements
+- **Node.js 18+** (check with `node -v`)
+- **Docker Desktop** — must be open and running before you start Postgres
+- **Git**
 
-Make sure the following are installed before you begin:
+---
 
-- Node.js 22+
-- npm
-- Docker Desktop
-- Git
+## First-time setup (do this once per machine)
 
-### Clone the Repository
+### 1. Clone the repo
 
-```bash
-git clone <repository-url>
+```cmd
+git clone https://github.com/shivendraupstream/Lookogs.git
 cd Lookogs
 ```
 
-### Environment Variables
+### 2. Create environment files
 
-Copy the example env file and adjust values as needed.
+Two `.env` files are needed — neither is committed to Git (they contain
+secrets), so you create them fresh on every machine.
 
-```bash
-cp .env.example .env
+**Root `.env`** (same folder as `docker-compose.yml`):
+```cmd
+copy .env.example .env
+```
+Open it and set your own values — any values work, they just need to match
+step 3 below:
+```
+POSTGRES_USER=your_chosen_username
+POSTGRES_PASSWORD=your_chosen_password
+POSTGRES_DB=lookogs_logs
+REDIS_PORT=6379
+PGADMIN_DEFAULT_EMAIL=admin@example.com
+PGADMIN_DEFAULT_PASSWORD=changeme
 ```
 
-> On Windows, duplicate `.env.example` and rename the copy to `.env`.
-
-```env
-POSTGRES_USER=lookogs
-POSTGRES_PASSWORD=password
-POSTGRES_DB=lookogs
-
-DATABASE_URL=postgresql://lookogs:password@localhost:5432/lookogs
+**`backend/.env`:**
+```cmd
+cd backend
+copy .env.example .env
 ```
+Fill in:
+```
+DATABASE_URL="postgresql://your_chosen_username:your_chosen_password@localhost:5433/lookogs_logs"
+ADMIN_USERNAME=pick_a_dashboard_username
+ADMIN_PASSWORD=pick_a_dashboard_password
+SESSION_SECRET=any_long_random_string
+LOOKOGS_API_KEY=leave_blank_for_now_see_step_7
+FRONTEND_URL=http://localhost:5173
+```
+The `DATABASE_URL` username/password/port must exactly match the root
+`.env` values and the port Postgres is mapped to (`5433`, per
+`docker-compose.yml`).
 
-### Install Dependencies
+### 3. Install dependencies
 
-```bash
+```cmd
 cd backend
 npm install
+cd ../frontend
+npm install
+cd ..
 ```
+`npm install` in `backend/` automatically runs `prisma generate` afterward
+(via the `postinstall` script) — this creates the Prisma client code your
+app needs. No separate step required.
 
-### Start Docker Services
+### 4. Start Postgres, Redis, and pgAdmin
 
-From the project root:
-
-```bash
+From the repo root:
+```cmd
 docker compose up -d
-```
-
-This starts:
-- PostgreSQL
-- Redis
-- pgAdmin
-
-Confirm everything is running:
-
-```bash
 docker ps
 ```
+Confirm `lookogs_db` shows as `Up` / `healthy` before continuing.
 
-### Database Setup
+### 5. Create the database tables
 
-Generate the Prisma client:
-
-```bash
-npx prisma generate
-```
-
-Apply migrations:
-
-```bash
+```cmd
+cd backend
 npx prisma migrate deploy
 ```
 
-For local development, you can use the interactive flow instead:
+### 6. Start the backend
 
-```bash
-npx prisma migrate dev
-```
-
-### Seed the Database (Optional)
-
-```bash
-npm run seed
-```
-
-### Run the Backend
-
-From the `backend` directory:
-
-```bash
+```cmd
 npm run dev
 ```
+Leave this terminal running. You should see `Server listening at
+http://127.0.0.1:3000`.
 
-You should see:
+### 7. Start the frontend (in a **second** terminal)
 
+```cmd
+cd frontend
+npm run dev
 ```
-🚀 Server running on http://localhost:3000
-```
+Leave this running too. Open the URL it prints (usually
+`http://localhost:5173`).
 
-### Verify the Backend
+### 8. Log in
 
-```
-GET http://localhost:3000/health
-```
+You'll see a login screen — use the `ADMIN_USERNAME`/`ADMIN_PASSWORD` you
+set in `backend/.env` (step 2).
 
-Expected response:
+### 9. Create your first App and Source
 
-```json
-{
-  "status": "healthy"
-}
-```
+1. **Applications** page → "+ New Application"
+2. **Sources** page → pick your app → "+ New Source" → **copy the API key
+   shown — it's only displayed once**
 
----
+### 10. (Optional) enable self-logging
 
-## pgAdmin Access
-
-Open pgAdmin at:
-
-```
-http://localhost:5050
-```
-
-Log in with the credentials configured in your Docker environment, then register the PostgreSQL server with:
-
-| Field | Value |
-|---|---|
-| Host | `postgres` |
-| Port | `5432` |
-| Database | `lookogs` |
-| Username | `lookogs` |
-| Password | `password` |
-
----
-
-## API Reference
-
-### Applications
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/apps` | Create an application |
-| `GET` | `/api/v1/apps` | List applications |
-
-### Sources
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/sources` | Create a source |
-| `GET` | `/api/v1/sources` | List sources |
-
-### Log Ingestion
-
-```
-POST /api/v1/ingest
-```
-
-Requires an `x-api-key` header. Supports JSON payloads (single or bulk).
-
-### Retrieve Logs
-
-```
-GET /api/v1/logs
-```
-
-**Query Parameters**
-
-| Parameter | Required | Description |
-|---|---|---|
-| `appId` | Yes | Target application ID |
-| `severity` | No | Filter by log severity |
-| `sourceId` | No | Filter by source |
-| `search` | No | Full-text search |
-| `startTime` | No | Range filter, start |
-| `endTime` | No | Range filter, end |
-| `limit` | No | Max results per page |
-
-**Example**
-
-```
-GET /api/v1/logs?appId=<APP_ID>&severity=ERROR
-```
-
-### Retrieve a Single Log
-
-```
-GET /api/v1/logs/:id?appId=<APP_ID>
-```
-
----
-
-## Architecture
-
-Lookogs follows a layered backend architecture:
-
-```
-HTTP Request
-     │
-     ▼
-  Routes            → expose HTTP endpoints
-     │
-     ▼
- Controllers        → handle requests, shape responses
-     │
-     ▼
-  Services          → business logic
-     │
-     ▼
-Repositories        → database access
-     │
-     ▼
- Prisma ORM          → maps models to SQL
-     │
-     ▼
- PostgreSQL
-```
-
----
-
-## Roadmap
-
-**Implemented**
-- [x] Docker development environment
-- [x] PostgreSQL + Prisma ORM
-- [x] Application & source management
-- [x] API key authentication
-- [x] JSON log ingestion (single + bulk)
-- [x] Filtered, paginated log retrieval
-- [x] DTO responses & global error handling
-
-**Planned**
-- [ ] NDJSON ingestion
-- [ ] Plain-text log ingestion
-- [ ] logfmt support
-- [ ] Retention jobs
-- [ ] Swagger / OpenAPI docs
-- [ ] User authentication & teams
-- [ ] Alerts
-- [ ] Charts & dashboards
-- [ ] Live log streaming
-- [ ] ClickHouse / OpenSearch backend option
-
----
-
-## Development Commands
-
-| Command | Description |
-|---|---|
-| `npm install` | Install dependencies |
-| `npm run dev` | Run development server |
-| `npx prisma generate` | Regenerate Prisma client |
-| `npx prisma migrate dev --name <name>` | Create a new migration |
-| `npx prisma migrate deploy` | Deploy pending migrations |
-| `npx prisma studio` | Open Prisma Studio |
-
----
-
-## Stopping the Project
-
-Stop containers, keep data:
-
-```bash
-docker compose down
-```
-
-Stop containers and remove volumes (deletes data):
-
-```bash
-docker compose down -v
-```
-
----
-
-## Troubleshooting
-
-**Docker isn't running**
-Start Docker Desktop, then re-run:
-```bash
-docker compose up
-```
-
-**Database connection failed**
-Check that the Postgres container is up:
-```bash
-docker ps
-```
-
-**Prisma Client is out of date**
-```bash
-npx prisma generate
-```
-
-**Migration issues**
-Reset the development database (⚠️ deletes all data):
-```bash
-npx prisma migrate reset
-```
-
----
-
-## Contributing
-
-1. Create a feature branch:
-   ```bash
-   git checkout -b feature/my-feature
+If you want Lookogs to log its own backend traffic:
+1. Install the client package: `cd backend && npm install github:shivendraupstream/lookogs-client`
+2. In `app.ts`, import from the package instead of a local file:
+   ```ts
+   import { initLookogs } from "lookogs-client";
+   import { attachToFastify } from "lookogs-client/fastify";
    ```
-2. Commit your changes:
-   ```bash
-   git commit -m "feat: add feature"
-   ```
-3. Push the branch:
-   ```bash
-   git push origin feature/my-feature
-   ```
-4. Open a Pull Request.
+3. Paste the API key from step 9 into `backend/.env` as `LOOKOGS_API_KEY`
+4. Restart the backend (`Ctrl+C`, then `npm run dev` again)
+
+### 11. Send a test log
+
+```cmd
+curl -X POST http://localhost:3000/api/v1/ingest -H "Content-Type: application/json" -H "x-api-key: YOUR_KEY_FROM_STEP_9" -d "{\"logs\": [{\"message\": \"Setup complete\", \"severity\": \"INFO\", \"eventTime\": \"2026-08-05T00:00:00Z\"}]}"
+```
+Then check the **Logs** page in the dashboard, switch to your app in the
+dropdown — you should see it.
 
 ---
 
-## License
+## Daily use (after first-time setup is done)
 
-This project is intended for educational and portfolio purposes.
+You don't repeat all of the above every time — just:
+
+```cmd
+docker compose up -d          (if Docker isn't already running)
+cd backend && npm run dev     (terminal 1)
+cd frontend && npm run dev    (terminal 2)
+```
+
+---
+
+## Connecting your own app to send logs here
+
+See **`INTEGRATION.md`** — covers Node/backend apps, browser/frontend apps,
+and the raw HTTP API for any other language.
+
+The client is published as its own package — no manual file copying:
+**https://github.com/shivendraupstream/lookogs-client**
+```
+npm install github:shivendraupstream/lookogs-client
+```
+
+---
+
+## Common problems
+
+**`ERR_MODULE_NOT_FOUND` on `generated/prisma/...`**
+Run `npx prisma generate` inside `backend/`.
+
+**`SASL: client password must be a string`**
+`backend/.env`'s `DATABASE_URL` doesn't match the root `.env` Postgres
+credentials, or `backend/.env` is missing.
+
+**`Can't reach database server`**
+Docker isn't running, or the Postgres container didn't start. Check
+`docker ps`, and make sure Docker Desktop itself is open.
+
+**`The table 'public.App' does not exist`**
+Migrations were never run — `npx prisma migrate deploy` inside `backend/`.
+
+**Login always fails with 401**
+Restart the backend after any `.env` change — it only reads `.env` once,
+at startup.
+
+**CORS error in the browser console**
+`FRONTEND_URL` in `backend/.env` must exactly match the URL your frontend
+is actually running on.
+
+For more detail on any of these, see `SETUP.md`.
+
+---
+
+## Roadmap / what's built so far
+
+- ✅ App/Source management, API key auth, rate limiting
+- ✅ Log ingestion (JSON only — NDJSON/logfmt/plaintext not yet supported)
+- ✅ Filtering, free-text + JSON-attribute search, advanced query syntax
+  (`severity:error AND method:GET`)
+- ✅ Severity-over-time chart, saved views, cursor pagination
+- ✅ Session-token dashboard login
+- ❌ Not yet: retention/cleanup job, deep links to a single log line,
+  uptime/host metrics, alerting

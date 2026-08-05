@@ -13,7 +13,7 @@
     "prisma:studio": "prisma studio"
   },
   "prisma": {
-  "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -21,9 +21,11 @@
   "description": "",
   "dependencies": {
     "@fastify/cors": "^11.3.0",
+    "@fastify/rate-limit": "^11.2.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "fastify": "^5.10.0",
+    "lookogs-client": "github:shivendraupstream/lookogs-client",
     "pg": "^8.22.0"
   },
   "devDependencies": {

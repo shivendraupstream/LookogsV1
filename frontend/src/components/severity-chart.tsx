@@ -22,12 +22,34 @@ const SEVERITY_COLORS: Record<string, string> = {
 }
 
 export function SeverityChart({ data }: Props) {
+  const first = data[0]
+  const last = data[data.length - 1]
+
+  const spanMs = first && last
+    ? new Date(last.bucketStart).getTime() - new Date(first.bucketStart).getTime()
+    : 0
+
+  // If the range crosses midnight, PM/AM alone looks like it "jumps around" —
+  // include the date so it's unambiguous, regardless of total duration.
+  const crossesDayBoundary = first && last
+    ? new Date(first.bucketStart).toDateString() !== new Date(last.bucketStart).toDateString()
+    : false
+
+  const formatLabel = (iso: string): string => {
+    const date = new Date(iso)
+
+    if (crossesDayBoundary) {
+      return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }
+    if (spanMs < 60 * 60 * 1000) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    }
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
   const chartData = data.map((bucket) => ({
     ...bucket,
-    label: new Date(bucket.bucketStart).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
+    label: formatLabel(bucket.bucketStart),
   }))
 
   return (

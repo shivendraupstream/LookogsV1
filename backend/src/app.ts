@@ -1,49 +1,86 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { timingSafeEqual } from "node:crypto";
 import { savedViewRoutes } from "./routes/saved-view.routes.js";
 
 import { appRoutes } from "./routes/app.routes.js";
 import { sourceRoutes } from "./routes/source.routes.js";
 import { ingestRoutes } from "./routes/ingest.routes.js";
 import { logRoutes } from "./routes/log.routes.js";
-import { errorHandler } from "./plugins/error-handler.js";    
-import { initLookogs, attachToFastify } from "./lookogs-client.js";
+import { errorHandler } from "./plugins/error-handler.js";
+import { initLookogs } from "lookogs-client";
+import { attachToFastify } from "lookogs-client/fastify";
+import { createSessionToken, verifySessionToken } from "./utils/session-token.js";
+import rateLimit from "@fastify/rate-limit";
 
 export const app = Fastify({
   logger: true,
 });
 
+await app.register(rateLimit, {
+  max: 300,
+  timeWindow: "1 minute",
+  keyGenerator: (request) => {
+    const apiKey = request.headers["x-api-key"];
+    if (typeof apiKey === "string") return apiKey; // rate limit per source API key
+    return request.ip; // fall back to IP for non-ingest routes
+  },
+});
+
 await app.register(cors, {
-  origin: true,
+  origin: process.env.FRONTEND_URL || "http://localhost:5173",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 });
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "changeme";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+  throw new Error("ADMIN_USERNAME and ADMIN_PASSWORD must be set in the environment");
+}
+
+// Public login endpoint — exchanges username/password for a short-lived session token.
+app.post("/api/v1/login", async (request, reply) => {
+  const { username = "", password = "" } = (request.body as { username?: string; password?: string }) ?? {};
+
+  const usernameMatches =
+    username.length === ADMIN_USERNAME.length &&
+    timingSafeEqual(Buffer.from(username), Buffer.from(ADMIN_USERNAME));
+
+  const passwordMatches =
+    password.length === ADMIN_PASSWORD.length &&
+    timingSafeEqual(Buffer.from(password), Buffer.from(ADMIN_PASSWORD));
+
+  if (!usernameMatches || !passwordMatches) {
+    return reply.code(401).send({ error: "Invalid credentials" });
+  }
+
+  const token = createSessionToken();
+  return reply.code(200).send({ token });
+});
 
 app.addHook("onRequest", async (request, reply) => {
-  if (request.url === "/health") return; // allow health checks through, unauthenticated
-  if (request.method === "OPTIONS") return; // let CORS preflight requests through unauthenticated
+  if (request.url === "/health") return;
+  if (request.method === "OPTIONS") return;
+  if (request.url === "/api/v1/login") return;
+  if (request.url === "/api/v1/ingest") return; // has its own per-source API key auth
 
   const authHeader = request.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Basic ")) {
-    reply.header("WWW-Authenticate", 'Basic realm="Lookogs"');
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     reply.code(401).send({ error: "Authentication required" });
     return reply;
   }
 
-  const base64Credentials = authHeader.slice("Basic ".length);
-  const credentials = Buffer.from(base64Credentials, "base64").toString("utf-8");
-  const [username, password] = credentials.split(":");
+  const token = authHeader.slice("Bearer ".length);
 
-  if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
-    reply.code(401).send({ error: "Invalid credentials" });
+  if (!verifySessionToken(token)) {
+    reply.code(401).send({ error: "Invalid or expired session" });
     return reply;
   }
 });
 
-initLookogs({ apiKey: "2465f29b150e4a25e69a75c52885f03ce635332d433d157bde39c6da188bff58", serviceName: "lookogs-backend" });
+initLookogs({ apiKey: process.env.LOOKOGS_API_KEY!, serviceName: "lookogs-backend" });
 attachToFastify(app);
 
 await app.register(appRoutes, { prefix: "/api/v1" });
@@ -51,8 +88,6 @@ await app.register(sourceRoutes, { prefix: "/api/v1" });
 await app.register(ingestRoutes);
 await app.register(logRoutes);
 await app.register(savedViewRoutes, { prefix: "/api/v1" });
-
-
 
 await errorHandler(app);
 

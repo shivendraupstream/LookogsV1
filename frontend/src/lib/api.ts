@@ -8,12 +8,22 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const username = localStorage.getItem('lookogs_username')
-  const password = localStorage.getItem('lookogs_password')
-
-  if (username && password) {
-    config.auth = { username, password }
+  const token = localStorage.getItem('lookogs_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
-
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isLoginRequest = error.config?.url?.includes('/login')
+
+    if (error.response?.status === 401 && !isLoginRequest) {
+      localStorage.removeItem('lookogs_token')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)

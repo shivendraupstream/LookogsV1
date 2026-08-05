@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@appsignal/javascript": "^1.6.1",
+    "@fastify/rate-limit": "^11.2.0"
+  }
+}
