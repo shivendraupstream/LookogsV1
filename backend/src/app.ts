@@ -13,8 +13,12 @@ import { attachToFastify } from "lookogs-client/fastify";
 import { createSessionToken, verifySessionToken } from "./utils/session-token.js";
 import rateLimit from "@fastify/rate-limit";
 
+import { startRetentionJob } from "./jobs/retention.job.js";
+import { purgeOldLogs } from "./jobs/retention.job.js";
+
 export const app = Fastify({
   logger: true,
+  bodyLimit: 10 * 1024 * 1024, // 10MB — default 1MB is too small for large log batches
 });
 
 await app.register(rateLimit, {
@@ -82,6 +86,7 @@ app.addHook("onRequest", async (request, reply) => {
 
 initLookogs({ apiKey: process.env.LOOKOGS_API_KEY!, serviceName: "lookogs-backend" });
 attachToFastify(app);
+startRetentionJob(app);
 
 await app.register(appRoutes, { prefix: "/api/v1" });
 await app.register(sourceRoutes, { prefix: "/api/v1" });
@@ -90,6 +95,11 @@ await app.register(logRoutes);
 await app.register(savedViewRoutes, { prefix: "/api/v1" });
 
 await errorHandler(app);
+
+app.post("/api/v1/admin/purge-logs", async (request, reply) => {
+  const deleted = await purgeOldLogs();
+  return reply.code(200).send({ deleted });
+});
 
 app.get("/health", async () => {
   return {
