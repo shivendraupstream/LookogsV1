@@ -1,14 +1,21 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useApps } from '../hooks/use-apps'
 import { useLogs } from '../hooks/use-logs'
 import { SeverityBadge } from '../components/severity-badge'
 import { useHistogram } from '../hooks/use-histogram'
 import { SeverityChart } from '../components/severity-chart'
 import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../hooks/use-saved-views'
+import { getLogById } from '../api/logs.api'
 import type { Log } from '../types/log'
 import type { LogCursor } from '../api/logs.api'
 
 export default function LogsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const deepLinkAppId = searchParams.get('appId')
+  const deepLinkLogId = searchParams.get('logId')
+
   const { data: apps } = useApps()
   const [selectedAppId, setSelectedAppId] = useState<string>('')
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
@@ -19,9 +26,40 @@ export default function LogsPage() {
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
   const [selectedViewId, setSelectedViewId] = useState<string>('')
+  const [copiedLogId, setCopiedLogId] = useState<string | null>(null)
 
   const [cursor, setCursor] = useState<LogCursor | undefined>(undefined)
   const [accumulatedLogs, setAccumulatedLogs] = useState<Log[]>([])
+
+  // If a deep link is present, honor it immediately for app selection —
+  // takes priority over the "default to first app" behavior below.
+  useEffect(() => {
+    if (deepLinkAppId) {
+      setSelectedAppId(deepLinkAppId)
+    }
+  }, [deepLinkAppId])
+
+  useEffect(() => {
+    if (!deepLinkAppId && !selectedAppId && apps && apps.length > 0) {
+      setSelectedAppId(apps[0].id)
+    }
+  }, [apps, selectedAppId, deepLinkAppId])
+
+  // Fetch the specific deep-linked log directly by ID, independent of
+  // whatever page/filters the main table is currently showing.
+  const { data: deepLinkedLog, isLoading: deepLinkLoading, error: deepLinkError } = useQuery({
+    queryKey: ['log', deepLinkAppId, deepLinkLogId],
+    queryFn: () => getLogById(deepLinkAppId!, deepLinkLogId!),
+    enabled: !!deepLinkAppId && !!deepLinkLogId,
+  })
+
+  const clearDeepLink = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete('logId')
+      return next
+    })
+  }
 
   const getTimeRangeParams = (): { startTime?: string; endTime?: string } => {
     const now = new Date()
@@ -53,12 +91,6 @@ export default function LogsPage() {
       endTime: timeRangeParams.endTime || now.toISOString(),
     }
   }, [timeRangeParams])
-
-  useEffect(() => {
-    if (!selectedAppId && apps && apps.length > 0) {
-      setSelectedAppId(apps[0].id)
-    }
-  }, [apps, selectedAppId])
 
   const filters = {
     severity: severityFilter || undefined,
@@ -103,6 +135,13 @@ export default function LogsPage() {
 
   const toggleExpand = (id: string) => {
     setExpandedLogId((current) => (current === id ? null : id))
+  }
+
+  const copyLogLink = (logId: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?appId=${selectedAppId}&logId=${logId}`
+    navigator.clipboard.writeText(url)
+    setCopiedLogId(logId)
+    setTimeout(() => setCopiedLogId((current) => (current === logId ? null : current)), 2000)
   }
 
   const highlightMatch = (text: string, query: string) => {
@@ -187,6 +226,47 @@ export default function LogsPage() {
           </div>
         </div>
       </div>
+
+      {deepLinkLogId && (
+        <div className="rounded-xl border border-cyan-700 bg-cyan-950/20 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-cyan-300">
+              Shared log line
+            </span>
+            <button
+              onClick={clearDeepLink}
+              className="text-xs rounded-md border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800 transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          {deepLinkLoading && <div className="text-slate-400 text-sm">Loading shared log...</div>}
+          {deepLinkError && <div className="text-red-400 text-sm">This log couldn't be found — it may have been deleted or purged.</div>}
+
+          {deepLinkedLog && (
+            <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <SeverityBadge severity={deepLinkedLog.severity} />
+                <span className="font-medium text-slate-100">{deepLinkedLog.message}</span>
+              </div>
+              <div className="text-xs text-slate-500 mb-3">
+                {deepLinkedLog.service || '—'} · {new Date(deepLinkedLog.timestamp).toLocaleString()}
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {Object.entries(deepLinkedLog.attributes || {}).map(([key, value]) => (
+                    <tr key={key}>
+                      <td className="pr-4 py-1 text-slate-400 align-top w-1/4">{key}</td>
+                      <td className="py-1 text-slate-200 break-all">{String(value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {histogramData && histogramData.length > 0 && (
         <SeverityChart data={histogramData} />
@@ -317,6 +397,9 @@ export default function LogsPage() {
                 <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">
                   Timestamp
                 </th>
+                <th className="text-right px-4 py-3 text-sm font-medium text-slate-300">
+
+                </th>
               </tr>
             </thead>
 
@@ -341,11 +424,22 @@ export default function LogsPage() {
                     <td className="px-4 py-3 align-top text-slate-400 whitespace-nowrap">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
+                    <td className="px-4 py-3 align-top text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          copyLogLink(log.id)
+                        }}
+                        className="text-xs rounded-md border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800 cursor-pointer transition-colors"
+                      >
+                        {copiedLogId === log.id ? 'Copied!' : 'Copy link'}
+                      </button>
+                    </td>
                   </tr>
 
                   {expandedLogId === log.id && (
                     <tr className="border-b border-slate-800 bg-slate-950/30">
-                      <td colSpan={4} className="px-4 py-4">
+                      <td colSpan={5} className="px-4 py-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-slate-300">
                             Attributes
