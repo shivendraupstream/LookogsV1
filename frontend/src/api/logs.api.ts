@@ -57,3 +57,8 @@ export async function getHistogram(
   })
   return response.data.buckets
 }
+
+export async function getLogById(appId: string, id: string): Promise<Log> {
+  const response = await api.get<Log>(`/logs/${id}`, { params: { appId } })
+  return response.data
+}
