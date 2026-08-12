@@ -4,15 +4,12 @@ import { parseQuery } from '../utils/query-parser.js';
 
 type Log = NonNullable<Awaited<ReturnType<typeof prisma.log.findFirst>>>;
 
-// Minimal parsed-log shape used by the repository. The parser module
-// wasn't present at this path in the workspace, so define the shape here
-// to keep the repository self-contained.
 export type ParsedLog = {
   message: string;
-  // Use the repository Log severity type to stay in sync with the Prisma model
   severity: Log['severity'] | string;
   eventTime: Date;
-  attributes: any;
+  service?: string | null;
+  attributes: Record<string, unknown>;
 };
 
 export interface CreateLogsInput {
@@ -39,10 +36,6 @@ export interface FindLogsQuery {
 export class LogRepository {
   private prisma = prisma;
 
-  /**
-   * Bulk inserts parsed log lines.
-   * Note: Server sets ingestTime automatically, client payload provides eventTime.
-   */
   async createMany(input: CreateLogsInput): Promise<number> {
     const { appId, sourceId, logs } = input;
 
@@ -52,12 +45,11 @@ export class LogRepository {
       appId,
       sourceId,
       message: log.message,
-      // cast severity to the Prisma enum type if it's a string
       severity: log.severity as Log['severity'],
       eventTime: log.eventTime,
       ingestTime,
-      service: (log as any).service ?? null,
-      attributes: log.attributes,
+      service: log.service ?? null,
+      attributes: log.attributes as Prisma.InputJsonValue,
     }));
 
     const result = await this.prisma.log.createMany({
@@ -76,8 +68,8 @@ export class LogRepository {
     endTime: Date;
   }): Promise<{ severity: string; eventTime: Date }[]> {
     const { appId, severity, sourceId, search, startTime, endTime } = query;
-    const where: any = { appId, eventTime: { gte: startTime, lte: endTime } };
-    if (severity) where.severity = severity;
+    const where: Prisma.LogWhereInput = { appId, eventTime: { gte: startTime, lte: endTime } };
+    if (severity) where.severity = severity as Log['severity'];
     if (sourceId) where.sourceId = sourceId;
     if (search) where.message = { contains: search, mode: 'insensitive' };
 
@@ -88,14 +80,6 @@ export class LogRepository {
     });
   }
 
-  /**
-   * Fetches logs using cursor pagination (eventTime + id) scoped strictly to an appId.
-   *
-   * Uses a raw SQL query (instead of Prisma's typed `where`) so that `search`
-   * can match against BOTH the message text AND the raw JSON attributes text.
-   * Prisma's typed JSON filters require a known key path, which doesn't work
-   * here since attributes have arbitrary, per-log keys.
-   */
   async findMany(query: FindLogsQuery): Promise<Log[]> {
     const { appId, severity, sourceId, search, startTime, endTime, cursor, limit = 50, query: advancedQuery } = query;
 
@@ -147,5 +131,17 @@ export class LogRepository {
     return this.prisma.log.findFirst({
       where: { id, appId },
     });
+  }
+
+  async getAvgResponseTime(appId: string, startTime: Date, endTime: Date): Promise<number | null> {
+    const result = await this.prisma.$queryRaw<{ avg: number | null }[]>`
+      SELECT AVG((attributes->>'responseTimeMs')::numeric) as avg
+      FROM logs
+      WHERE "appId" = ${appId}
+        AND "eventTime" >= ${startTime}
+        AND "eventTime" <= ${endTime}
+        AND attributes->>'responseTimeMs' ~ '^[0-9.]+$'
+    `;
+    return result[0]?.avg ?? null;
   }
 }

@@ -11,6 +11,13 @@ import { getLogById } from '../api/logs.api'
 import type { Log } from '../types/log'
 import type { LogCursor } from '../api/logs.api'
 
+
+function toDatetimeLocalValue(iso: string): string {
+  const date = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export default function LogsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkAppId = searchParams.get('appId')
@@ -82,6 +89,7 @@ export default function LogsPage() {
     return {}
   }
 
+ // eslint-disable-next-line react-hooks/exhaustive-deps -- getTimeRangeParams is a plain function defined inside the component, not stable state; including it would cause this to recompute on every render, defeating the memoization
   const timeRangeParams = useMemo(() => getTimeRangeParams(), [timeRange, customStart, customEnd])
 
   const { startTime: histStart, endTime: histEnd } = useMemo(() => {
@@ -109,11 +117,8 @@ export default function LogsPage() {
   useEffect(() => {
     if (!data) return
 
-    if (!cursor) {
-      setAccumulatedLogs(data.logs)
-    } else {
-      setAccumulatedLogs((prev) => [...prev, ...data.logs])
-    }
+    setAccumulatedLogs((prev) => (cursor ? [...prev, ...data.logs] : data.logs))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT keyed on `cursor`; this should only re-run when new `data` actually arrives, not when `cursor` changes right before the fetch
   }, [data])
 
   const handleLoadMore = () => {
@@ -256,11 +261,17 @@ export default function LogsPage() {
               <table className="w-full text-sm">
                 <tbody>
                   {Object.entries(deepLinkedLog.attributes || {}).map(([key, value]) => (
-                    <tr key={key}>
-                      <td className="pr-4 py-1 text-slate-400 align-top w-1/4">{key}</td>
-                      <td className="py-1 text-slate-200 break-all">{String(value)}</td>
-                    </tr>
-                  ))}
+                      <tr key={key}>
+                        <td className="pr-4 py-1 text-slate-400 align-top w-1/4">
+                          {key}
+                        </td>
+                        <td className="py-1 text-slate-200 break-all">
+                          {typeof value === 'object' && value !== null
+                            ? JSON.stringify(value)
+                            : String(value)}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -269,7 +280,14 @@ export default function LogsPage() {
       )}
 
       {histogramData && histogramData.length > 0 && (
-        <SeverityChart data={histogramData} />
+        <SeverityChart
+          data={histogramData}
+          onBucketClick={(start, end) => {
+            setTimeRange('custom')
+            setCustomStart(toDatetimeLocalValue(start))
+            setCustomEnd(toDatetimeLocalValue(end))
+          }}
+        />
       )}
 
       <div className="flex items-center gap-3">
@@ -458,19 +476,19 @@ export default function LogsPage() {
                         </div>
 
                         <table className="w-full text-sm">
-                          <tbody>
-                            {Object.entries(log.attributes || {}).map(([key, value]) => (
-                              <tr key={key}>
-                                <td className="pr-4 py-1 text-slate-400 align-top w-1/4">
-                                  {key}
-                                </td>
-                                <td className="py-1 text-slate-200 break-all">
-                                  {String(value)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <tbody>
+                          {Object.entries(log.attributes || {}).map(([key, value]) => (
+                            <tr key={key}>
+                              <td className="pr-4 py-1 text-slate-400 align-top w-1/4">{key}</td>
+                              <td className="py-1 text-slate-200 break-all">
+                                {typeof value === 'object' && value !== null
+                                  ? JSON.stringify(value)
+                                  : String(value)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                       </td>
                     </tr>
                   )}

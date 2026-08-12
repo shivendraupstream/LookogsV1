@@ -1,11 +1,13 @@
 import { useApps, useCreateApp, useDeleteApp } from '../hooks/use-apps'
+import  { useState } from 'react'
+import type { App } from '../types/app'
 
 
 export default function AppsPage() {
   const { data: apps, isLoading, error } = useApps()
   const createApp = useCreateApp()
-
   const deleteApp = useDeleteApp()
+  const [revealedKey, setRevealedKey] = useState<{ appName: string; sourceName: string; key: string } | null>(null)
 
   const handleCreate = () => {
     const name = window.prompt('Application name:')
@@ -13,7 +15,20 @@ export default function AppsPage() {
 
     const description = window.prompt('Description (optional):') || undefined
 
-    createApp.mutate({ name, description })
+    createApp.mutate(
+      { name, description },
+      {
+        onSuccess: (created: App & { defaultSource?: { name: string; apiKey: string } }) => {
+          if (created.defaultSource?.apiKey) {
+            setRevealedKey({
+              appName: created.name,
+              sourceName: created.defaultSource.name,
+              key: created.defaultSource.apiKey,
+            })
+          }
+        },
+      }
+    )
   }
 
   const handleDelete = (id: string, name: string) => {
@@ -31,6 +46,25 @@ export default function AppsPage() {
 
   return (
     <div className="space-y-6">
+      {revealedKey && (
+        <div className="rounded-xl border border-cyan-700 bg-cyan-950/30 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-cyan-300">
+              "{revealedKey.appName}" is ready — copy this key now, it won't be shown again
+            </span>
+            <button
+              onClick={() => navigator.clipboard.writeText(revealedKey.key)}
+              className="text-xs rounded-md border border-cyan-700 px-2 py-1 text-cyan-300 hover:bg-cyan-900/50 transition-colors"
+            >
+              Copy
+            </button>
+          </div>
+          <code className="block break-all text-sm text-slate-100">{revealedKey.key}</code>
+          <p className="text-xs text-slate-500 mt-2">
+            A "{revealedKey.sourceName}" source was created automatically — you can rename it or add more sources from the Sources page.
+          </p>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-100">Applications</h1>
 

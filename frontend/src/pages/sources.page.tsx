@@ -5,6 +5,7 @@ import {
   useCreateSource,
   useDeleteSource,
   useRotateSourceKey,
+  useUpdateSource
 } from '../hooks/use-sources'
 
 export default function SourcesPage() {
@@ -22,8 +23,18 @@ export default function SourcesPage() {
   const createSource = useCreateSource(selectedAppId)
   const deleteSource = useDeleteSource(selectedAppId)
   const rotateSourceKey = useRotateSourceKey(selectedAppId)
+  const updateSource = useUpdateSource(selectedAppId)
 
   const selectedApp = apps?.find((app) => app.id === selectedAppId)
+
+  const handleEdit = (source: { id: string; name: string; environment: string }) => {
+    const newName = window.prompt('Source name:', source.name)
+    if (!newName) return
+
+    const newEnvironment = window.prompt('Environment:', source.environment) || source.environment
+
+    updateSource.mutate({ id: source.id, name: newName, environment: newEnvironment })
+  }
 
   const handleCreate = () => {
     const name = window.prompt('Source name (e.g. Backend):')
@@ -136,8 +147,14 @@ export default function SourcesPage() {
                     Created {new Date(source.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-
+                
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEdit(source)}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition-colors"
+                  >
+                    Edit
+                  </button>
                   <button
                     onClick={() => handleRotate(source.id)}
                     className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 transition-colors"

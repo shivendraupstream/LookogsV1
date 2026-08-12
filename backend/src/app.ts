@@ -21,6 +21,10 @@ export const app = Fastify({
   bodyLimit: 10 * 1024 * 1024, // 10MB — default 1MB is too small for large log batches
 });
 
+app.addContentTypeParser("*", { parseAs: "string" }, (req, body, done) => {
+  done(null, body);
+});
+
 await app.register(rateLimit, {
   max: 300,
   timeWindow: "1 minute",

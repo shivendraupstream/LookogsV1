@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma.js";
-
+import { Prisma } from "../generated/prisma/client.js";
 export { LogRepository, type CreateLogsInput, type FindLogsQuery, type ParsedLog } from "./log.repositories.js";
 
 export class AppRepository {
@@ -108,7 +108,7 @@ export class SourceRepository {
 }
 
 export class SavedViewRepository {
-  async create(data: { name: string; filters: any; appId: string }) {
+  async create(data: { name: string; filters: Prisma.InputJsonValue; appId: string }) {
     return prisma.savedView.create({ data });
   }
 
