@@ -19,7 +19,7 @@ export function validateLog(log: IngestLog): string[] {
     errors.push("Message is required.");
   }
 
-  if (!VALID_SEVERITIES.includes(log.severity as any)) {
+  if (!(VALID_SEVERITIES as readonly string[]).includes(log.severity)) {
     errors.push("Invalid severity.");
   }
 

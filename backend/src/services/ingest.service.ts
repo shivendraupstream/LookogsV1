@@ -29,7 +29,7 @@ export class IngestService {
     if ("logs" in input) {
       logs = input.logs;
     } else {
-      const format = (input.format || (source as any).format || "plaintext").toLowerCase();
+      const format = (input.format || "plaintext").toLowerCase();
       if (format === "ndjson") logs = parseNdjson(input.raw);
       else if (format === "logfmt") logs = parseLogfmt(input.raw);
       else logs = parsePlaintext(input.raw);

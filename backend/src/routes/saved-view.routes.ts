@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { SavedViewService } from "../services/saved-view.service.js";
+import type { Prisma } from "../generated/prisma/browser.js";
+
 
 export async function savedViewRoutes(fastify: FastifyInstance) {
   const savedViewService = new SavedViewService();
 
-  fastify.post<{ Params: { appId: string }; Body: { name: string; filters: Record<string, unknown> } }>(
+  fastify.post<{ Params: { appId: string }; Body: { name: string; filters: Prisma.InputJsonValue } }>(
     "/apps/:appId/views",
     {
       schema: {

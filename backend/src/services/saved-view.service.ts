@@ -1,9 +1,10 @@
 import { SavedViewRepository } from "../repositories/repositories.js";
+import { Prisma } from "../generated/prisma/client.js";
 
 export class SavedViewService {
   private savedViewRepository = new SavedViewRepository();
 
-  async create(appId: string, name: string, filters: Record<string, unknown>) {
+  async create(appId: string, name: string, filters: Prisma.InputJsonValue) {
     return this.savedViewRepository.create({ name, filters, appId });
   }
 

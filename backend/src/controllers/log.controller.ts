@@ -35,7 +35,7 @@ export class LogController {
 
             return reply.code(200).send(log);
 
-        } catch (error) {
+        } catch {
             return reply.code(500).send({
             error: "Failed to retrieve log",
             });
@@ -63,7 +63,7 @@ export class LogController {
             endTime: new Date(endTime),
         });
         return reply.code(200).send({ buckets });
-        } catch (error) {
+        } catch {
         return reply.code(500).send({ error: "Failed to retrieve histogram" });
         }
     }
@@ -186,7 +186,7 @@ export class LogController {
         : null;
 
       return reply.code(200).send({logs, nextCursor});
-    } catch (error) {
+    } catch {
       return reply.code(500).send({
         error: "Failed to retrieve logs",
       });
@@ -203,7 +203,7 @@ export class LogController {
     try {
       const metrics = await logService.getMetrics(appId, new Date(startTime), new Date(endTime));
       return reply.code(200).send(metrics);
-    } catch (error) {
+    } catch {
       return reply.code(500).send({ error: "Failed to retrieve metrics" });
     }
   }
