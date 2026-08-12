@@ -89,6 +89,7 @@ export default function LogsPage() {
     return {}
   }
 
+ // eslint-disable-next-line react-hooks/exhaustive-deps -- getTimeRangeParams is a plain function defined inside the component, not stable state; including it would cause this to recompute on every render, defeating the memoization
   const timeRangeParams = useMemo(() => getTimeRangeParams(), [timeRange, customStart, customEnd])
 
   const { startTime: histStart, endTime: histEnd } = useMemo(() => {
@@ -116,11 +117,8 @@ export default function LogsPage() {
   useEffect(() => {
     if (!data) return
 
-    if (!cursor) {
-      setAccumulatedLogs(data.logs)
-    } else {
-      setAccumulatedLogs((prev) => [...prev, ...data.logs])
-    }
+    setAccumulatedLogs((prev) => (cursor ? [...prev, ...data.logs] : data.logs))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally NOT keyed on `cursor`; this should only re-run when new `data` actually arrives, not when `cursor` changes right before the fetch
   }, [data])
 
   const handleLoadMore = () => {
