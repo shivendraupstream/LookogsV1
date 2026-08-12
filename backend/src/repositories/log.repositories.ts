@@ -148,4 +148,16 @@ export class LogRepository {
       where: { id, appId },
     });
   }
+
+  async getAvgResponseTime(appId: string, startTime: Date, endTime: Date): Promise<number | null> {
+    const result = await this.prisma.$queryRaw<{ avg: number | null }[]>`
+      SELECT AVG((attributes->>'responseTimeMs')::numeric) as avg
+      FROM logs
+      WHERE "appId" = ${appId}
+        AND "eventTime" >= ${startTime}
+        AND "eventTime" <= ${endTime}
+        AND attributes->>'responseTimeMs' ~ '^[0-9.]+$'
+    `;
+    return result[0]?.avg ?? null;
+  }
 }

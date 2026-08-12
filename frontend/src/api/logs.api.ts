@@ -62,3 +62,10 @@ export async function getLogById(appId: string, id: string): Promise<Log> {
   const response = await api.get<Log>(`/logs/${id}`, { params: { appId } })
   return response.data
 }
+
+export async function getMetrics(appId: string, startTime: string, endTime: string): Promise<{ avgResponseTimeMs: number | null }> {
+  const response = await api.get<{ avgResponseTimeMs: number | null }>('/logs/metrics', {
+    params: { appId, startTime, endTime },
+  })
+  return response.data
+}

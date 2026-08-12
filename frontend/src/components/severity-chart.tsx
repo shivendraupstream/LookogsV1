@@ -10,6 +10,7 @@ import type { HistogramBucket } from '../api/logs.api'
 
 interface Props {
   data: HistogramBucket[]
+  onBucketClick?: (startTime: string, endTime: string) => void
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -21,7 +22,7 @@ const SEVERITY_COLORS: Record<string, string> = {
   FATAL: '#7f1d1d',
 }
 
-export function SeverityChart({ data }: Props) {
+export function SeverityChart({ data, onBucketClick }: Props) {
   const first = data[0]
   const last = data[data.length - 1]
 
@@ -29,8 +30,6 @@ export function SeverityChart({ data }: Props) {
     ? new Date(last.bucketStart).getTime() - new Date(first.bucketStart).getTime()
     : 0
 
-  // If the range crosses midnight, PM/AM alone looks like it "jumps around" —
-  // include the date so it's unambiguous, regardless of total duration.
   const crossesDayBoundary = first && last
     ? new Date(first.bucketStart).toDateString() !== new Date(last.bucketStart).toDateString()
     : false
@@ -47,10 +46,23 @@ export function SeverityChart({ data }: Props) {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  // Each bucket's width, derived from the gap between consecutive buckets —
+  // needed to know where a clicked bucket actually ENDS, not just starts.
+  const bucketWidthMs = data.length > 1
+    ? new Date(data[1].bucketStart).getTime() - new Date(data[0].bucketStart).getTime()
+    : 60 * 60 * 1000
+
   const chartData = data.map((bucket) => ({
     ...bucket,
     label: formatLabel(bucket.bucketStart),
+    bucketEnd: new Date(new Date(bucket.bucketStart).getTime() + bucketWidthMs).toISOString(),
   }))
+
+  const handleBarClick = (barData: any) => {
+    if (onBucketClick && barData?.bucketStart && barData?.bucketEnd) {
+      onBucketClick(barData.bucketStart, barData.bucketEnd)
+    }
+  }
 
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
@@ -63,10 +75,20 @@ export function SeverityChart({ data }: Props) {
             labelStyle={{ color: '#e2e8f0' }}
           />
           {Object.keys(SEVERITY_COLORS).map((severity) => (
-            <Bar key={severity} dataKey={severity} stackId="a" fill={SEVERITY_COLORS[severity]} />
+            <Bar
+              key={severity}
+              dataKey={severity}
+              stackId="a"
+              fill={SEVERITY_COLORS[severity]}
+              onClick={handleBarClick}
+              cursor="pointer"
+            />
           ))}
         </BarChart>
       </ResponsiveContainer>
+      {onBucketClick && (
+        <p className="text-xs text-slate-500 mt-2">Click a bar to zoom into that time window</p>
+      )}
     </div>
   )
 }

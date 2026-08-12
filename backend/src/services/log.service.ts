@@ -52,4 +52,9 @@ export class LogService {
     }
     return toLogDto(log);
   }
+
+  async getMetrics(appId: string, startTime: Date, endTime: Date) {
+    const avgResponseTimeMs = await this.logRepository.getAvgResponseTime(appId, startTime, endTime);
+    return { avgResponseTimeMs };
+  }
 }

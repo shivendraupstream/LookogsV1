@@ -29,6 +29,40 @@ export async function sourceRoutes(fastify: FastifyInstance) {
       reply.code(200).send(rotated);
     }
   );
+
+  fastify.patch<{ Params: { id: string }; Body: { name?: string; environment?: string } }>(
+    "/sources/:id",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "string", minLength: 1 } },
+        },
+        body: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            name: { type: "string", minLength: 1 },
+            environment: { type: "string", minLength: 1 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { name, environment } = request.body;
+
+      const found = await sourceService.findById(id);
+      if (!found) {
+        reply.code(404).send({ error: "Source not found" });
+        return;
+      }
+
+      const updated = await sourceService.update(id, name, environment);
+      reply.code(200).send(updated);
+    }
+  );
   
   fastify.post<{
     Params: { appId: string };

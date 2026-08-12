@@ -192,4 +192,19 @@ export class LogController {
       });
     }
   }
+  async getMetrics(request: FastifyRequest, reply: FastifyReply) {
+    const { appId, startTime, endTime } = request.query as {
+      appId?: string; startTime?: string; endTime?: string;
+    };
+
+    if (!appId) return reply.code(400).send({ error: "appId is required" });
+    if (!startTime || !endTime) return reply.code(400).send({ error: "startTime and endTime are required" });
+
+    try {
+      const metrics = await logService.getMetrics(appId, new Date(startTime), new Date(endTime));
+      return reply.code(200).send(metrics);
+    } catch (error) {
+      return reply.code(500).send({ error: "Failed to retrieve metrics" });
+    }
+  }
 }

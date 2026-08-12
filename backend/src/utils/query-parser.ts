@@ -28,7 +28,7 @@ function conditionToSql(cond: Condition): Prisma.Sql | null {
 
   if (cond.field === 'severity') {
     const value = cond.value.toUpperCase();
-    if (!VALID_SEVERITIES.includes(value)) return null; // ignore invalid severity instead of erroring
+    if (!VALID_SEVERITIES.includes(value)) return null;
     return Prisma.sql`severity = ${value}::"Severity"`;
   }
 
@@ -40,7 +40,13 @@ function conditionToSql(cond: Condition): Prisma.Sql | null {
     return Prisma.sql`hostname = ${cond.value}`;
   }
 
-  // Anything else is treated as an attribute key, e.g. method:GET, status:404
+  // Dot-notation nested path, e.g. user.id -> attributes #>> '{user,id}'
+  if (cond.field.includes('.')) {
+    const path = cond.field.split('.');
+    return Prisma.sql`attributes #>> ${path} = ${cond.value}`;
+  }
+
+  // Flat attribute key, e.g. method:GET, status:404
   return Prisma.sql`attributes->>${cond.field} = ${cond.value}`;
 }
 

@@ -88,6 +88,9 @@ model Log {
 
   @@index([appId, eventTime, id])
 
+  @@index([severity])
+  @@index([attributes], type: Gin)
+
   @@map("logs")
 }
 

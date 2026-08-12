@@ -32,3 +32,8 @@ export async function rotateSourceKey(id: string): Promise<Source> {
   const response = await api.post<Source>(`/sources/${id}/rotate-key`)
   return response.data
 }
+
+export async function updateSource(id: string, name?: string, environment?: string): Promise<Source> {
+  const response = await api.patch<Source>(`/sources/${id}`, { name, environment })
+  return response.data
+}
