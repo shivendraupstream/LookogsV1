@@ -11,3 +11,4 @@ dist/
 **/*.js.map
 **/*.d.ts
 **/*.d.ts.map
+!eslint.config.js
