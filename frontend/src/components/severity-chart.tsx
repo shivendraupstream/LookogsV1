@@ -58,9 +58,18 @@ export function SeverityChart({ data, onBucketClick }: Props) {
     bucketEnd: new Date(new Date(bucket.bucketStart).getTime() + bucketWidthMs).toISOString(),
   }))
 
-  const handleBarClick = (barData: any) => {
-    if (onBucketClick && barData?.bucketStart && barData?.bucketEnd) {
-      onBucketClick(barData.bucketStart, barData.bucketEnd)
+  interface BarClickData {
+    payload?: {
+      bucketStart?: string
+      bucketEnd?: string
+    }
+  }
+
+  const handleBarClick = (barData: BarClickData) => {
+    const bucketStart = barData?.payload?.bucketStart
+    const bucketEnd = barData?.payload?.bucketEnd
+    if (onBucketClick && bucketStart && bucketEnd) {
+      onBucketClick(bucketStart, bucketEnd)
     }
   }
 

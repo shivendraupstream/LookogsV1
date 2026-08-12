@@ -1,5 +1,6 @@
 import { useApps, useCreateApp, useDeleteApp } from '../hooks/use-apps'
 import  { useState } from 'react'
+import type { App } from '../types/app'
 
 
 export default function AppsPage() {
@@ -17,7 +18,7 @@ export default function AppsPage() {
     createApp.mutate(
       { name, description },
       {
-        onSuccess: (created: any) => {
+        onSuccess: (created: App & { defaultSource?: { name: string; apiKey: string } }) => {
           if (created.defaultSource?.apiKey) {
             setRevealedKey({
               appName: created.name,
