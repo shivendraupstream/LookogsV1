@@ -41,6 +41,7 @@ model App {
   sources     Source[]
   logs        Log[]
   saved_views SavedView[]
+  triggers    Trigger[]
 }
 
 model Source {
@@ -108,4 +109,24 @@ model SavedView {
   updatedAt  DateTime @updatedAt
 
   @@map("saved_views")
+}
+
+model Trigger {
+  id              String    @id @default(uuid())
+
+  name            String
+  query           String
+  thresholdCount  Int
+  windowMinutes   Int       @default(5)
+  webhookUrl      String
+  cooldownMinutes Int       @default(15)
+  lastNotifiedAt  DateTime?
+
+  appId           String
+  app             App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("triggers")
 }

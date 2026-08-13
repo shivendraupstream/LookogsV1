@@ -6,6 +6,7 @@ const links = [
   { label: 'Applications', path: '/apps' },
   { label: 'Sources', path: '/sources' },
   { label: 'Logs', path: '/logs' },
+  { label: 'Alerts', path: '/alerts' },
 ]
 
 export function Sidebar() {
