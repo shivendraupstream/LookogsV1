@@ -123,3 +123,28 @@ export class SavedViewRepository {
     return prisma.savedView.delete({ where: { id } });
   }
 }
+
+export class TriggerRepository {
+  async create(data: {
+    name: string;
+    query: string;
+    thresholdCount: number;
+    windowMinutes: number;
+    webhookUrl: string;
+    cooldownMinutes: number;
+    appId: string;
+  }) {
+    return prisma.trigger.create({ data });
+  }
+
+  async findAllByApp(appId: string) {
+    return prisma.trigger.findMany({
+      where: { appId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async delete(id: string) {
+    return prisma.trigger.delete({ where: { id } });
+  }
+}

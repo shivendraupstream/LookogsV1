@@ -8,13 +8,15 @@ import { sourceRoutes } from "./routes/source.routes.js";
 import { ingestRoutes } from "./routes/ingest.routes.js";
 import { logRoutes } from "./routes/log.routes.js";
 import { errorHandler } from "./plugins/error-handler.js";
-import { initLookogs } from "lookogs-client";
-import { attachToFastify } from "lookogs-client/fastify";
+import { initLookogs, attachToFastify } from "./lookogs-client.js";
 import { createSessionToken, verifySessionToken } from "./utils/session-token.js";
 import rateLimit from "@fastify/rate-limit";
 
 import { startRetentionJob } from "./jobs/retention.job.js";
 import { purgeOldLogs } from "./jobs/retention.job.js";
+
+import { triggerRoutes } from "./routes/trigger.routes.js";
+import { startTriggerEvaluator } from "./jobs/trigger-evaluator.job.js";
 
 export const app = Fastify({
   logger: true,
@@ -91,12 +93,14 @@ app.addHook("onRequest", async (request, reply) => {
 initLookogs({ apiKey: process.env.LOOKOGS_API_KEY!, serviceName: "lookogs-backend" });
 attachToFastify(app);
 startRetentionJob(app);
+startTriggerEvaluator(app);
 
 await app.register(appRoutes, { prefix: "/api/v1" });
 await app.register(sourceRoutes, { prefix: "/api/v1" });
 await app.register(ingestRoutes);
 await app.register(logRoutes);
 await app.register(savedViewRoutes, { prefix: "/api/v1" });
+await app.register(triggerRoutes, { prefix: "/api/v1" });
 
 await errorHandler(app);
 

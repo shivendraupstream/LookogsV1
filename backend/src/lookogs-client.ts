@@ -1,4 +1,4 @@
-// lookogs-client.ts — server-side (Fastify) version
+// lookogs-client.ts — server-side (Fastify) version, local copy
 import type { FastifyInstance } from 'fastify'
 
 interface LookogsConfig {
