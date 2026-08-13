@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { SavedViewService } from "../services/saved-view.service.js";
-import type { Prisma } from "../generated/prisma/browser.js";
+import type { Prisma } from "../generated/prisma/client.js";
 
 
 export async function savedViewRoutes(fastify: FastifyInstance) {
